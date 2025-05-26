@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/style.css">
+    <title>Mafia</title>
+</head>
+<body>
+    <h1>Mafia</h1>
+
+    <form id="start-form" action="" method="POST">
+        <input type="text" id="name" placeholder="Enter your name" required autocomplete="on">
+
+        <select id="role" required autocomplete="on">
+            <option value="default" disabled hidden>Choose role</option>
+            <option value="mafia">Mafia</option>
+            <option value="citizen">Citizen</option>
+            <option value="detective" selected>Detective</option>
+            <option value="doctor">Doctor</option>
+        </select>
+
+        <button id="submit">Submit</button>
+    </form>
+
+    <div id="game-info">
+        <h3 id="welcome">Start game?</h3>
+        <div id="info">
+            <p id="player-info"></p>
+        </div>
+        <button id="start-btn">Start Game</button>
+    </div>
+
+    <div id="game">
+        <h3 id="night-count"></h3>
+        <textarea id="hello-name" readonly hidden></textarea>
+        <br>
+        <select id="choose-mafia" hidden></select>
+        <button id="choose-mafia-btn" hidden>Choose mafia</button>
+        <button id="continue" hidden>Continue</button>
+
+    </div>
+    <script src="js/script.js"></script>
+</body>
+</html>
