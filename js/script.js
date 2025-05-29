@@ -60,6 +60,8 @@ let playerToRemove;
 let playerToPush;
 let index;
 let killRandom;
+let saveRandom;
+let previousSave;
 const allPlayers = mafia + detective + doctor + civilians;
 
 for (let i = 1; i <= allPlayers; i++) {
@@ -82,12 +84,14 @@ if (playerRole.value == "detective") {
 
     continueBtn.onclick = () => {
         chooseMafia.innerHTML = ""; // Clear previous options
-        for (let i = 1; i <= mafia+doctor+civilians; i++) {
-            chooseMafia.innerHTML += `<option value="${i}">Player ${i}</option>`
+        for (const player of possibleValues) {
+            if (player != randomPlayer) {
+                chooseMafia.innerHTML += `<option value="${player}">Player ${player}</option>`;
+            }
         }
 
         addHidden(continueBtn);
-        nightCount += 1;
+        nightCount++;
         nights.textContent = `Night ${nightCount}`;
 
         if (nightCount == 1) {
@@ -102,17 +106,18 @@ if (playerRole.value == "detective") {
 
         setTimeout(() => {
             textarea.textContent += `\nThe mafia is planning their move...`;
-            killRandom = Math.floor(Math.random() * possibleValues.length);
-            console.log("Kill: ", killRandom);
+            do {
+                    killRandom = Math.floor(Math.random() * possibleValues.length);
+                    killRandom = possibleValues[killRandom];
+                    if (!possibleValues.includes(randomDoctor)) {
+                        killRandom = Math.floor(Math.random() * possibleValues.length);
+                        killRandom = possibleValues[killRandom];
+                    } else {
+                        continue; // Continue if doctor is alive
+                    }
+            } while (killRandom == randomMafia)
 
-            if (!possibleValues.includes(randomDoctor)) {
-                while (killRandom == randomDoctor) {
-                    killRandom = Math.floor(Math.random() * possibleValues.length); // Ensure mafia does not kill the doctor
-                }
-            }
-            while (killRandom == randomMafia) {
-                killRandom = Math.floor(Math.random() * 5 + 1); // Ensure mafia does not kill himself
-            }
+            console.log("Kill: ", killRandom);
 
             if (killRandom == randomDoctor) {
                 playerToRemove = randomDoctor;
@@ -125,34 +130,33 @@ if (playerRole.value == "detective") {
             if (possibleValues.includes(randomDoctor)) {
                 setTimeout(() => {
                     textarea.textContent += `\nDoctor is trying to save someone...`;
-                    console.log("Possible values before removing: ", possibleValues);
+                    let doctorPossibleValues = [...possibleValues]; // Create a copy of possible values to modify
 
-                    if (previousDoctorMessage == `Doctor has saved himself.`) {
+                    // Doctor can't save the same player twice
+                    if (previousSave == randomDoctor) {
                         valueToRemove = randomDoctor;
-                        index = possibleValues.indexOf(valueToRemove);
+                        index = doctorPossibleValues.indexOf(valueToRemove);
                         if (index > -1) {
-                            possibleValues.splice(index, 1); // Remove doctor from possible values
+                            doctorPossibleValues.splice(index, 1); // Remove doctor from possible values
                         }
-                    } else if (previousDoctorMessage == `Doctor has saved the player.`) {
+                    } else if (previousSave == randomPlayer) {
                         valueToRemove = randomPlayer;
-                        index = possibleValues.indexOf(valueToRemove);
+                        index = doctorPossibleValues.indexOf(valueToRemove);
                         if (index > -1) {
-                            possibleValues.splice(index, 1); // Remove player from possible values
+                            doctorPossibleValues.splice(index, 1); // Remove player from possible values
                         }
-                    } else if (previousDoctorMessage == `Doctor has saved a civilian.`) {
-                        valueToRemove = allPlayers - (randomDoctor + randomPlayer + killRandom);
-                        index = possibleValues.indexOf(valueToRemove);
+                    } else if (previousSave != randomDoctor && previousSave != randomPlayer) {
+                        valueToRemove = previousSave; // Civilian choosed to be saved
+                        index = doctorPossibleValues.indexOf(valueToRemove);
                         if (index > -1) {
-                            possibleValues.splice(index, 1); // Remove civilian from possible values
+                            doctorPossibleValues.splice(index, 1); // Remove civilian from possible values
                         }
                     }
-                    console.log("Possible values after removing: ", possibleValues);
 
-                    let saveRandom = Math.floor(Math.random() * possibleValues.length);
-                    while (saveRandom == randomMafia) {
-                        saveRandom = Math.floor(Math.random() * possibleValues.length); // Ensure doctor does not save the mafia
-                    }
-                    saveRandom = possibleValues[saveRandom]; // Get a random value from the possible values
+                    saveRandom = Math.floor(Math.random() * doctorPossibleValues.length);
+                    console.log("Previous save: ", previousSave);
+                    saveRandom = doctorPossibleValues[saveRandom]; // Get a random value from the possible values
+                    previousSave = saveRandom; // Store the last saved player
                     console.log("Save: ", saveRandom);
                     
                         if (saveRandom == killRandom) {
@@ -160,14 +164,12 @@ if (playerRole.value == "detective") {
                         }
                         if (saveRandom == randomDoctor) {
                             playerToPush = randomDoctor; // Add doctor back to possible values
-                            doctorMessage = `Doctor has saved himself.`;
                         } else if (saveRandom == randomPlayer) {
                             playerToPush = randomPlayer; // Add player back to possible values
-                            doctorMessage = `Doctor has saved the player.`;
                         } else if (saveRandom != randomDoctor && saveRandom != randomPlayer && killRandom == saveRandom) {
-                            doctorMessage = `Doctor has saved a civilian.`;
+                            playerToPush = killRandom; // Add civilian back to possible values
                         } else if (saveRandom != randomDoctor && saveRandom != randomPlayer && killRandom != saveRandom) {
-                            doctorMessage = `Doctor has saved another civilian.`;
+                            playerToPush = saveRandom;
                         }
                         if ((killRandom == randomDoctor && saveRandom != randomDoctor) || (killRandom == randomPlayer && saveRandom != randomPlayer)) {
                             doctorMessage = '';
@@ -212,7 +214,6 @@ function endNight() {
     if (index > -1) {
         possibleValues.splice(index, 1); // Remove player from possible values
     }
-    console.log("Possible values after removing: ", possibleValues);
 
     setTimeout(() => {
         if ((possibleValues - randomMafia - randomDoctor - randomPlayer).length == 0) {
@@ -220,21 +221,22 @@ function endNight() {
             removeHidden(continueBtn);
             return; // End the game if all civilians are dead
         }
-        if (playerToRemove == killRandom) { 
-            index = possibleValues.indexOf(playerToRemove);
-            if (index > -1) {
-                possibleValues.splice(index, 1); // Remove civilian from possible values
-            }
-            textarea.textContent += `\nOne civilian has been killed.`;
-        } else if (doctorMessage == "Doctor has saved a civilian.") {
-            textarea.textContent += "\nMafia has attempted to kill a civilian.";
-        } else if (doctorMessage == "Doctor has saved the player.") {
-            textarea.textContent += "\nMafia has attempted to kill the player."
-        } else if (doctorMessage == "Doctor has saved himself.") {
-            textarea.textContent += "\nMafia has attempted to kill the doctor.";
+
+        let role;
+        if (killRandom == randomDoctor) {
+            role = "Doctor";
+        } else if (killRandom != randomPlayer && killRandom != randomDoctor) {
+            role = "Civilian";
         }
-        if (!possibleValues.includes(playerToPush)) {
+
+        if (killRandom != saveRandom) {
+            textarea.textContent += `\nPlayer ${playerToRemove} has been killed. He was a ${role}.`;
+        }
+
+        if (possibleValues.includes(playerToPush) == false) {
             possibleValues.push(playerToPush); // Add player back to possible values
+        } else {
+            console.log("Player already exists in possible values.");
         }
 
         let doctorKillTimeout = 2000;
@@ -242,7 +244,6 @@ function endNight() {
 
         if (possibleValues.includes(randomDoctor)) {
             setTimeout(() => {
-                textarea.textContent += `\n${doctorMessage}`;
                 doctorKillTimeout = 3000;
                 mafiaPlayerTimeout = 4000;
             }, 2000);
@@ -274,78 +275,66 @@ function endNight() {
 
         if (possibleValues.includes(randomPlayer) && possibleValues.includes(randomMafia)) {
             setTimeout(() => {
-                const allPlayers = [];
-                const voteCounts = {};
-                textarea.textContent += `\n\nNow it's time to vote for the player you think is the mafia.`;
+                textarea.textContent = `Time to vote for the player you think is the mafia.\n\n`;
+                console.log("Possible values before voting: ", possibleValues);
 
-                function aiVote() {
-                    for (const i in possibleValues) {
-                        allPlayers.push(possibleValues[i]); // Add all players except the mafia
-                    }
-                    for (let i = 0; i < allPlayers.length; i++) {
-                        const randomVote = Math.floor(Math.random() * allPlayers.length);
-                        voteCounts[allPlayers[randomVote]] = (voteCounts[allPlayers[randomVote]] || 0) + 1;
-                    }
+                let votes = {};
+                for (const player of possibleValues) {
+                    votes[player] = 0; // Initialize votes for each player
                 }
-                aiVote(); // AI votes for players
+                let randomPlayerToVote;
+                for (let i = 1; i < possibleValues.length; i++) {
+                    do {
+                        randomPlayerToVote = Math.floor(Math.random() * possibleValues.length + 1);
+                    } while (possibleValues.includes(randomPlayerToVote) == false)
+                    votes[randomPlayerToVote]++; // Randomly vote for a player;
+                    console.log(randomPlayerToVote);
+                }
+                for (const player in votes) {
+                    textarea.textContent += `\nPlayer ${player} has ${votes[player]} votes.`;
+                }
+
                 votePlayer.innerHTML = ""; // Clear previous options
-                for (const i in possibleValues) {
-                    votePlayer.innerHTML += `<option value="${possibleValues[i]``}">Player ${possibleValues[i]}</option>`
-                }
-                for (const player in voteCounts) {
-                    const voteCount = voteCounts[player];
-                    textarea.textContent += `\nPlayer ${player} has ${voteCount} votes.`;
-                }
-
                 removeHidden(votePlayer);
                 removeHidden(votePlayerBtn);
+                for (const player in votes) {
+                    votePlayer.innerHTML += `<option value="${player}">Player ${player}</option>`;
+                }
+
                 votePlayerBtn.onclick = () => {
                     addHidden(votePlayer);
                     addHidden(votePlayerBtn);
-                    const playerVote = parseInt(votePlayer.value);
-                    voteCounts[playerVote] = (voteCounts[playerVote] || 0) + 1; // Add player's vote
-                    let maxVotes = 0;
-                    let votedPlayer;
+                    const votedPlayer = votePlayer.value;
+                    votes[votedPlayer]++; // Increment the vote for the selected player
 
-                    for (const player in voteCounts) {
-                        if (voteCounts[player] > maxVotes) {
-                            maxVotes = voteCounts[player];
-                            votedPlayer = player; // Player with the most votes
+
+                    let maxVotes = 0;
+                    let playerToKick;
+                    for (const vote in votes) {
+                        if (votes[vote] > maxVotes) {
+                            maxVotes = votes[vote];
+                            playerToKick = vote; // Find the player with the most votes
                         }
                     }
-                    let index;
-                    if (votedPlayer == randomMafia) {
-                        index = possibleValues.indexOf(randomMafia);
-                        if (index > -1) {
-                            possibleValues.splice(index, 1); // Remove mafia from possible values
-                        }
-                        textarea.textContent = `\nPlayer ${votedPlayer} has been voted out. He was the mafia.`;
-                    } else if (votedPlayer == randomDoctor && possibleValues.includes(randomDoctor)) {
-                        index = possibleValues.indexOf(randomDoctor);
-                        if (index > -1) {
-                            possibleValues.splice(index, 1); // Remove mafia from possible values
-                        }
-                        textarea.textContent = `\nPlayer ${votedPlayer} has been voted out. He was the doctor.`;
-                    } else if (votedPlayer == randomPlayer && possibleValues.includes(randomPlayer)) {
-                        index = possibleValues.indexOf(randomPlayer);
-                        if (index > -1) {
-                            possibleValues.splice(index, 1); // Remove mafia from possible values
-                        }
-                        textarea.textContent = `\nPlayer ${votedPlayer}(you) has been voted out. He was the detective.`;
-                    } else if (votedPlayer != randomDoctor && votedPlayer != randomPlayer && votedPlayer != randomMafia) {
-                        index = possibleValues.indexOf(votedPlayer);
-                        if (index > -1) {
-                            possibleValues.splice(index, 1); // Remove mafia from possible values
-                        }
-                        textarea.textContent = `\nPlayer ${votedPlayer} has been voted out. He was a civilian.`;
+                    console.log("Player to kick: ", playerToKick);
+
+                    index = possibleValues.indexOf(parseInt(playerToKick));
+                    if (index > -1) {
+                        possibleValues.splice(index, 1); // Remove player from possible values
+                    }
+                    console.log("Possible values after voting: ", possibleValues);
+                    if (playerToKick == randomMafia) {
+                        textarea.textContent = `Player ${playerToKick} has been kicked out. He was Mafia! You have won!`;
+                    } else if (playerToKick == randomPlayer) {
+                        textarea.textContent = `You have been kicked out.`;
+                    } else if (playerToKick == randomDoctor) {
+                        textarea.textContent = `Player ${playerToKick} has been kicked out. He was the doctor. The game continues...`;
                     } else {
-                        textarea.textContent = `\nNo one has been voted out.`;
+                        textarea.textContent = `Player ${playerToKick} has been kicked out. He was a civilian. The game continues...`;
                     }
                     removeHidden(continueBtn);
-                    console.log("Possible values after voting: ", possibleValues);
                 }
-
-            }, mafiaPlayerTimeout + 1000);
+            }, 5000);
         }
     }, 1000);
 }
